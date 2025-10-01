@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 import yfinance as yf
@@ -198,6 +198,68 @@ def get_price_history(
         rounding=True,
     )
     return df.to_markdown()
+
+
+@mcp.tool()
+def calculate_profit_loss(
+    symbol: Annotated[str, Field(description="The stock symbol")],
+    start_date: Annotated[
+        str,
+        Field(description="Start date in ISO format (YYYY-MM-DD) to calculate the price from"),
+    ],
+    end_date: Annotated[
+        str,
+        Field(description="End date in ISO format (YYYY-MM-DD) to calculate the price to"),
+    ],
+) -> str:
+    """Calculate the profit or loss and percentage change between two dates for a given stock symbol."""
+
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError as exc:
+        return json.dumps({"error": f"Invalid date format: {exc}"})
+
+    if start_dt >= end_dt:
+        return json.dumps({"error": "start_date must be earlier than end_date"})
+
+    ticker = yf.Ticker(symbol)
+    history = ticker.history(
+        start=start_dt,
+        end=end_dt + timedelta(days=1),
+        interval="1d",
+        rounding=True,
+    )
+
+    if history.empty:
+        return json.dumps(
+            {
+                "error": (
+                    "No historical data available for the given symbol and date range. "
+                    "Please verify the symbol and that the dates fall on trading days."
+                )
+            }
+        )
+
+    start_price = history.iloc[0]["Close"]
+    end_price = history.iloc[-1]["Close"]
+
+    profit_loss = end_price - start_price
+    percent_change = None
+    if start_price != 0:
+        percent_change = float((profit_loss / start_price) * 100)
+
+    return json.dumps(
+        {
+            "symbol": symbol,
+            "start_date": start_date,
+            "end_date": end_date,
+            "start_price": float(start_price),
+            "end_price": float(end_price),
+            "profit_loss": float(profit_loss),
+            "percent_change": percent_change,
+        }
+    )
 
 
 def main() -> None:
