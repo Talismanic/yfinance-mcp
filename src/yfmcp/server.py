@@ -224,25 +224,79 @@ def calculate_profit_loss(
         return json.dumps({"error": "start_date must be earlier than end_date"})
 
     ticker = yf.Ticker(symbol)
-    history = ticker.history(
-        start=start_dt,
-        end=end_dt + timedelta(days=1),
+
+    def _normalize_index(dataframe):
+        if dataframe.empty:
+            return dataframe
+
+        normalized = dataframe.copy()
+        index = normalized.index
+        tz = getattr(index, "tz", None)
+        if tz is not None:
+            normalized.index = index.tz_localize(None)
+        return normalized
+
+    def _select_price(
+        dataframe,
+        target_date: datetime,
+        prefer_future: bool,
+    ):
+        if dataframe.empty:
+            return None
+
+        normalized = _normalize_index(dataframe)
+
+        if prefer_future:
+            on_or_after = normalized[normalized.index >= target_date]
+            if not on_or_after.empty:
+                row = on_or_after.iloc[0]
+                return row["Close"], on_or_after.index[0]
+
+            before = normalized[normalized.index < target_date]
+            if not before.empty:
+                row = before.iloc[-1]
+                return row["Close"], before.index[-1]
+        else:
+            on_or_before = normalized[normalized.index <= target_date]
+            if not on_or_before.empty:
+                row = on_or_before.iloc[-1]
+                return row["Close"], on_or_before.index[-1]
+
+            after = normalized[normalized.index > target_date]
+            if not after.empty:
+                row = after.iloc[0]
+                return row["Close"], after.index[0]
+
+        return None
+
+    start_history = ticker.history(
+        start=start_dt - timedelta(days=1),
+        end=start_dt + timedelta(days=2),
+        interval="1d",
+        rounding=True,
+    )
+    end_history = ticker.history(
+        start=end_dt - timedelta(days=1),
+        end=end_dt + timedelta(days=2),
         interval="1d",
         rounding=True,
     )
 
-    if history.empty:
+    start_result = _select_price(start_history, start_dt, prefer_future=True)
+    end_result = _select_price(end_history, end_dt, prefer_future=False)
+
+    if not start_result or not end_result:
         return json.dumps(
             {
                 "error": (
-                    "No historical data available for the given symbol and date range. "
-                    "Please verify the symbol and that the dates fall on trading days."
+                    "Unable to retrieve price data near the requested dates. "
+                    "Please verify the symbol and that the dates fall close to trading days."
                 )
             }
         )
 
-    start_price = history.iloc[0]["Close"]
-    end_price = history.iloc[-1]["Close"]
+    start_price, start_price_date = start_result
+    end_price, end_price_date = end_result
 
     profit_loss = end_price - start_price
     percent_change = None
@@ -255,7 +309,9 @@ def calculate_profit_loss(
             "start_date": start_date,
             "end_date": end_date,
             "start_price": float(start_price),
+            "start_price_date": start_price_date.strftime("%Y-%m-%d"),
             "end_price": float(end_price),
+            "end_price_date": end_price_date.strftime("%Y-%m-%d"),
             "profit_loss": float(profit_loss),
             "percent_change": percent_change,
         }
