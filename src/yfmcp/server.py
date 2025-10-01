@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated
 
 import yfinance as yf
@@ -198,6 +198,124 @@ def get_price_history(
         rounding=True,
     )
     return df.to_markdown()
+
+
+@mcp.tool()
+def calculate_profit_loss(
+    symbol: Annotated[str, Field(description="The stock symbol")],
+    start_date: Annotated[
+        str,
+        Field(description="Start date in ISO format (YYYY-MM-DD) to calculate the price from"),
+    ],
+    end_date: Annotated[
+        str,
+        Field(description="End date in ISO format (YYYY-MM-DD) to calculate the price to"),
+    ],
+) -> str:
+    """Calculate the profit or loss and percentage change between two dates for a given stock symbol."""
+
+    try:
+        start_dt = datetime.fromisoformat(start_date)
+        end_dt = datetime.fromisoformat(end_date)
+    except ValueError as exc:
+        return json.dumps({"error": f"Invalid date format: {exc}"})
+
+    if start_dt >= end_dt:
+        return json.dumps({"error": "start_date must be earlier than end_date"})
+
+    ticker = yf.Ticker(symbol)
+
+    def _normalize_index(dataframe):
+        if dataframe.empty:
+            return dataframe
+
+        normalized = dataframe.copy()
+        index = normalized.index
+        tz = getattr(index, "tz", None)
+        if tz is not None:
+            normalized.index = index.tz_localize(None)
+        return normalized
+
+    def _select_price(
+        dataframe,
+        target_date: datetime,
+        prefer_future: bool,
+    ):
+        if dataframe.empty:
+            return None
+
+        normalized = _normalize_index(dataframe)
+
+        if prefer_future:
+            on_or_after = normalized[normalized.index >= target_date]
+            if not on_or_after.empty:
+                row = on_or_after.iloc[0]
+                return row["Close"], on_or_after.index[0]
+
+            before = normalized[normalized.index < target_date]
+            if not before.empty:
+                row = before.iloc[-1]
+                return row["Close"], before.index[-1]
+        else:
+            on_or_before = normalized[normalized.index <= target_date]
+            if not on_or_before.empty:
+                row = on_or_before.iloc[-1]
+                return row["Close"], on_or_before.index[-1]
+
+            after = normalized[normalized.index > target_date]
+            if not after.empty:
+                row = after.iloc[0]
+                return row["Close"], after.index[0]
+
+        return None
+
+    start_history = ticker.history(
+        start=start_dt - timedelta(days=1),
+        end=start_dt + timedelta(days=2),
+        interval="1d",
+        rounding=True,
+    )
+    end_history = ticker.history(
+        start=end_dt - timedelta(days=1),
+        end=end_dt + timedelta(days=2),
+        interval="1d",
+        rounding=True,
+    )
+
+    start_result = _select_price(start_history, start_dt, prefer_future=True)
+    end_result = _select_price(end_history, end_dt, prefer_future=False)
+
+    if not start_result or not end_result:
+        return json.dumps(
+            {
+                "error": (
+                    "Unable to retrieve price data near the requested dates. "
+                    "Please verify the symbol and that the dates fall close to trading days."
+                )
+            }
+        )
+
+    start_price, start_price_date = start_result
+    end_price, end_price_date = end_result
+
+    profit_loss = end_price - start_price
+    percent_change = None
+    if start_price != 0:
+        percent_change = float((profit_loss / start_price) * 100)
+
+    return json.dumps(
+        {
+            "symbol": symbol,
+            "start_date": start_date,
+            "end_date": end_date,
+            "start_price": float(start_price),
+            "start_price_date": start_price_date.strftime("%Y-%m-%d"),
+            "end_price": float(end_price),
+            "end_price_date": end_price_date.strftime("%Y-%m-%d"),
+            "profit_loss": float(profit_loss),
+            "percent_change": percent_change,
+        }
+    )
 
 
 def main() -> None:
