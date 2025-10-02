@@ -64,7 +64,7 @@ You can use this MCP server either via uv (Python package installer) or Docker.
 {
   "mcpServers": {
     "yfinance": {
-      "command": "/Users/mohammedmehedihasan/.local/bin/uvx",
+      "command": "uvx",
       "args": [
         "git+https://github.com/Talismanic/yfinance-mcp.git"
       ]
