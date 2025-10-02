@@ -43,6 +43,14 @@ A simple MCP server for Yahoo Finance using [yfinance](https://github.com/ranaro
     - `period` (string, optional): Time period to retrieve data for (e.g. '1d', '1mo', '1y'). Default is '1mo'.
     - `interval` (string, optional): Data interval frequency (e.g. '1d', '1h', '1m'). Default is '1d'.
 
+- **calculate_profit_loss**
+
+  - Calculate the absolute and percentage change between two dates for a given stock symbol, selecting the closest available trading days when exact matches are unavailable.
+  - Inputs:
+    - `symbol` (string): The stock symbol.
+    - `start_date` (string): Start date in ISO format (YYYY-MM-DD) to calculate the price from.
+    - `end_date` (string): End date in ISO format (YYYY-MM-DD) to calculate the price to.
+
 ## Usage
 
 You can use this MCP server either via uv (Python package installer) or Docker.
