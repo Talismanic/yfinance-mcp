@@ -63,24 +63,12 @@ You can use this MCP server either via uv (Python package installer) or Docker.
 ```json
 {
   "mcpServers": {
-    "yfmcp": {
-      "command": "uvx",
-      "args": ["yfmcp@latest"]
+    "yfinance": {
+      "command": "/Users/mohammedmehedihasan/.local/bin/uvx",
+      "args": [
+        "git+https://github.com/Talismanic/yfinance-mcp.git"
+      ]
     }
   }
 }
 ```
-
-### Via Docker
-
-Add the following configuration to your MCP server configuration file:
-
-```json
-{
-  "mcpServers": {
-    "yfmcp": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "narumi/yfinance-mcp"]
-    }
-  }
-}
