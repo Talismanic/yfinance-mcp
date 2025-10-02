@@ -27,16 +27,13 @@ A simple MCP server for Yahoo Finance using [yfinance](https://github.com/ranaro
     - `query` (string): The search query (ticker symbol or company name).
     - `search_type` (string): Type of search results to retrieve (options: "all", "quotes", "news").
 
-- **get_top** *(consolidated tool from [PR #1](https://github.com/Talismanic/yfinance-mcp/pull/1))*
+- **get_top**
 
-  - A single entry point for discovering the "top" insights from Yahoo Finance without juggling multiple tools. Depending on the `top_type` you pick, the server will route your request to the relevant Yahoo Finance endpoint and return:
-    - **Top ETFs** and **Top Mutual Funds** as newline-delimited `SYMBOL: Name` pairs, ideal when you just want a quick ranked list.
-    - **Top Companies**, **Top Growth Companies**, and **Top Performing Companies** as JSON payloads (or a list of industry-grouped JSON strings) that include analyst ratings, weights, growth, or performance metrics—perfect for downstream parsing or summarisation workflows.
+  - Get top entities (ETFs, mutual funds, companies, growth companies, or performing companies) in a sector.
   - Inputs:
-    - `sector` (string): The sector to explore.
-    - `top_type` (string): Which insight you need. Valid values are `"top_etfs"`, `"top_mutual_funds"`, `"top_companies"`, `"top_growth_companies"`, and `"top_performing_companies"`.
-    - `top_n` (number, optional): Limit the number of entities returned (default 10). Applies to all output types so you can keep responses concise.
-  - Returns an error message if an unsupported `top_type` is supplied or no data is available for the requested sector, making it easy to detect and handle edge cases in your client code.
+    - `sector` (string): The sector to get.
+    - `top_type` (string): Type of top companies to retrieve (options: "top_etfs", "top_mutual_funds", "top_companies", "top_growth_companies", "top_performing_companies").
+    - `top_n` (number, optional): Number of top entities to retrieve (default 10).
 
 - **get_price_history**
 
@@ -45,6 +42,14 @@ A simple MCP server for Yahoo Finance using [yfinance](https://github.com/ranaro
     - `symbol` (string): The stock symbol.
     - `period` (string, optional): Time period to retrieve data for (e.g. '1d', '1mo', '1y'). Default is '1mo'.
     - `interval` (string, optional): Data interval frequency (e.g. '1d', '1h', '1m'). Default is '1d'.
+
+- **calculate_profit_loss**
+
+  - Calculate the absolute and percentage change between two dates for a given stock symbol, selecting the closest available trading days when exact matches are unavailable.
+  - Inputs:
+    - `symbol` (string): The stock symbol.
+    - `start_date` (string): Start date in ISO format (YYYY-MM-DD) to calculate the price from.
+    - `end_date` (string): End date in ISO format (YYYY-MM-DD) to calculate the price to.
 
 ## Usage
 
